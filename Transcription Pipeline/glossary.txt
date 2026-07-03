@@ -1,0 +1,30 @@
+# Glossary for "From the Boys" - names/terms that Whisper often mishears.
+# One per line. Lines starting with # are ignored.
+# Add anyone/anything new you notice getting mis-transcribed.
+
+From the Boys
+Jely Kikamba
+Dr Alex Blower
+Catherine Carr
+Middlesex University
+Cardinal Langley High School
+Rochdale
+Hackney
+William Ellis
+Arsenal
+GCSE
+GCSEs
+Year Ten
+Year Eleven
+Central Cee
+drill
+OFB
+CGM
+Nux
+Palm Angels
+Represent
+Nicki Minaj
+Adele
+FOMO
+metoo
+youth centre

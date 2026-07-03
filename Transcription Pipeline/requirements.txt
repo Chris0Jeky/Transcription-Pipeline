@@ -1,0 +1,8 @@
+# Core (all setups):
+python-docx
+anthropic            # only needed for the optional cleanup_with_claude.py step
+
+# Transcription + diarization (install per your setup track - see README):
+#   whisperx
+#   torch  (CUDA / ROCm / CPU build depending on your machine)
+# On AMD (ROCm) you also need the ROCm build of CTranslate2 - see README.
