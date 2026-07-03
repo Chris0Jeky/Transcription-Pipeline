@@ -27,3 +27,12 @@ to `.env` and add your tokens.
 ## Quick start
 See **`Transcription Pipeline/README.md`**. Short version: install the deps for
 your machine, make sure `.env` has your `HF_TOKEN`, then run `run_windows.bat`.
+
+## Claude Code setup
+This repo is set up as a Claude Code project:
+- `CLAUDE.md` - project context + working instructions, loaded each session.
+- `.claude/settings.json` - shared settings: commit co-authored-by/attribution
+  trailers are **off**, and the default permission mode is **bypassPermissions**
+  (skips prompts). Note: bypass mode is meant for local/trusted use and is ignored
+  by cloud sessions.
+- `.claude/settings.local.json` - your personal overrides, git-ignored.
