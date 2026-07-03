@@ -6,3 +6,13 @@ anthropic            # only needed for the optional cleanup_with_claude.py step
 #   whisperx
 #   torch  (CUDA / ROCm / CPU build depending on your machine)
 # On AMD (ROCm) you also need the ROCm build of CTranslate2 - see README.
+
+# --- Confirmed-working CPU install (Windows, Python 3.13, mid-2026) ---
+# 1) CPU PyTorch (must match pyannote-audio 4.0's exact torch==2.8.0 pin):
+#      pip install torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 \
+#          --index-url https://download.pytorch.org/whl/cpu
+# 2) WhisperX + helpers (pulls whisperx 3.8.6, pyannote-audio 4.0.x,
+#    ctranslate2 4.8, faster-whisper 1.2, torchcodec 0.7, numpy>=2.1):
+#      pip install whisperx python-docx anthropic
+# Notes: do NOT pin numpy<2 (whisperx 3.8.6 needs numpy>=2.1). ffmpeg must be on
+# PATH; torchcodec additionally needs FFmpeg 4-7 *shared* DLLs (see README).

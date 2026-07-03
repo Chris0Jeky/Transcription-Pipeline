@@ -89,13 +89,16 @@ Also install **ffmpeg** on any track (Windows: `winget install Gyan.FFmpeg`).
 
 ## Step 2 setup - Hugging Face token (needed for speaker diarization)
 1. Sign up / log in at https://huggingface.co
-2. Settings -> Access Tokens -> **New token** (type: Read). Copy it.
-3. Open these two pages and click **Agree/Accept** to the conditions:
-   - https://huggingface.co/pyannote/speaker-diarization-3.1
-   - https://huggingface.co/pyannote/segmentation-3.0
-4. Give it to the pipeline: put it in `run_windows.bat`, or run
-   `set HF_TOKEN=hf_xxxx` (Windows) / `export HF_TOKEN=hf_xxxx` (Linux),
-   or pass `--hf-token hf_xxxx`.
+2. Settings -> Access Tokens -> **New token** (type: Read). Put it in `.env` as
+   `HF_TOKEN=hf_xxxx` (already set up on this machine).
+3. Accept the model licence (one click, while logged in). WhisperX 3.8+ uses:
+   - https://huggingface.co/pyannote/speaker-diarization-community-1
+   (The older WhisperX used `pyannote/speaker-diarization-3.1` +
+   `pyannote/segmentation-3.0`; accept those instead only if you run with
+   `--diarize-model pyannote/speaker-diarization-3.1`.)
+4. The token is read from `.env`, or pass `--hf-token hf_xxxx`, or set HF_TOKEN.
+   Until the licence is accepted the model download returns HTTP 403 - use
+   `--no-diarize` to transcribe (words only, no token needed) in the meantime.
 
 ---
 
@@ -112,9 +115,19 @@ Useful flags:
 |------|---------|
 | `--label-style P` | P1/P2/... (default). Use `QA` for Question/Answer. |
 | `--model medium` | faster, less accurate (good for CPU). |
+| `--language en` | force English (avoids mis-detecting quiet/noisy intros as e.g. Welsh). Recommended for this project. |
 | `--min-speakers 2 --max-speakers 2` | tell it how many voices (big reliability win on 1-1 interviews). |
+| `--no-diarize` | transcription only, no speaker labels, no HF token/licence needed. |
+| `--diarize-model NAME` | pick the pyannote pipeline (default `speaker-diarization-community-1`). |
 | `--glossary glossary.txt` | names/terms to spell correctly (edit this file!). |
 | `--reformat-only` | rebuild docs from existing `.json` (instant, no GPU). |
+
+### This machine (already configured)
+- Python venv (with the whole WhisperX + PyTorch CPU stack) lives OUTSIDE OneDrive at
+  `%USERPROFILE%\ftb-venv`; `run_windows.bat` calls it automatically.
+- `ffmpeg` installed via winget (Gyan.FFmpeg). torchcodec needs FFmpeg 4-7 shared
+  DLLs, which are placed next to the `torchcodec` package in the venv.
+- Diarization uses `pyannote/speaker-diarization-community-1` (accept its licence, Step 2).
 
 ### Optional cleanup pass (your "easy wins + flag the rest" idea)
 ```bat

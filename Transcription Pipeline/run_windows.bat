@@ -1,16 +1,28 @@
 @echo off
 REM ==== From the Boys - transcription launcher (Windows) ====
-REM 1) Make sure Transcription Pipeline\.env contains your HF_TOKEN (already set up).
-REM 2) Edit the two folders below if needed, then double-click this file.
+REM Uses the dedicated virtual environment set up for this project. It lives
+REM OUTSIDE OneDrive (in your user profile) so it is never sync-churned.
+REM ffmpeg is put on PATH here so WhisperX can decode the audio.
+REM
+REM One-time step for speaker diarization: sign in at huggingface.co (as the
+REM account whose token is in .env) and click "Agree" on
+REM   https://huggingface.co/pyannote/speaker-diarization-community-1
+REM Until that is accepted, add --no-diarize below to transcribe without labels.
+
+set VENV=%USERPROFILE%\ftb-venv
+set PY=%VENV%\Scripts\python.exe
+set PATH=%LOCALAPPDATA%\Microsoft\WinGet\Links;%PATH%
 
 set INPUT=..\AUDIO
 set OUTPUT=..\Transcripts_auto
 
 REM On the laptop, "medium" is a good speed/accuracy balance. Use large-v3 if you have time.
 REM P = label speakers P1/P2/... ; change to QA for Question/Answer.
-python run_transcription.py --input "%INPUT%" --output "%OUTPUT%" --model medium --label-style P
+REM --language en forces English (avoids mis-detecting quiet/noisy intros as another language).
+REM For 1-1 interviews, adding  --min-speakers 2 --max-speakers 2  improves diarization.
+"%PY%" run_transcription.py --input "%INPUT%" --output "%OUTPUT%" --model medium --language en --label-style P
 
 echo.
 echo Done. Optional AI clean-up (needs ANTHROPIC_API_KEY in .env):
-echo    python cleanup_with_claude.py --input "%OUTPUT%"
+echo    "%PY%" cleanup_with_claude.py --input "%OUTPUT%"
 pause

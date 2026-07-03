@@ -8,9 +8,13 @@
 /AUDIO/**
 /Transcripts/**
 /Transcripts_auto/**
+/Transcripts_polished/**
+/Transcripts_final/**
 !/AUDIO/**/
 !/Transcripts/**/
 !/Transcripts_auto/**/
+!/Transcripts_polished/**/
+!/Transcripts_final/**/
 !.gitkeep
 
 # Content file types anywhere (safety net; also ignores loose deliverable docs)

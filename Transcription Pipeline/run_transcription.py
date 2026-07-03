@@ -55,11 +55,11 @@ def load_glossary(path):
 
 
 def transcribe_file(audio_path, model, align_cache, diarizer, device,
-                    batch_size, min_spk, max_spk):
+                    batch_size, min_spk, max_spk, language=None):
     import whisperx
     audio = whisperx.load_audio(audio_path)
 
-    result = model.transcribe(audio, batch_size=batch_size)
+    result = model.transcribe(audio, batch_size=batch_size, language=language)
     lang = result["language"]
 
     if lang not in align_cache:
@@ -68,13 +68,14 @@ def transcribe_file(audio_path, model, align_cache, diarizer, device,
     result = whisperx.align(result["segments"], a_model, a_meta, audio, device,
                             return_char_alignments=False)
 
-    dia_kwargs = {}
-    if min_spk:
-        dia_kwargs["min_speakers"] = min_spk
-    if max_spk:
-        dia_kwargs["max_speakers"] = max_spk
-    diarize_segments = diarizer(audio, **dia_kwargs)
-    result = whisperx.assign_word_speakers(diarize_segments, result)
+    if diarizer is not None:
+        dia_kwargs = {}
+        if min_spk:
+            dia_kwargs["min_speakers"] = min_spk
+        if max_spk:
+            dia_kwargs["max_speakers"] = max_spk
+        diarize_segments = diarizer(audio, **dia_kwargs)
+        result = whisperx.assign_word_speakers(diarize_segments, result)
 
     segs = [{"start": s.get("start", 0.0), "end": s.get("end", 0.0),
              "speaker": s.get("speaker", "UNKNOWN"), "text": s.get("text", "")}
@@ -89,6 +90,9 @@ def main():
     ap.add_argument("--output", required=True, help="folder for transcripts")
     ap.add_argument("--model", default="large-v3",
                     help="whisper model (default large-v3; use 'medium' or 'small' on CPU for speed)")
+    ap.add_argument("--language", default=None,
+                    help="force language code (e.g. 'en'). Default: auto-detect per file. "
+                         "Forcing 'en' avoids mis-detection on noisy/quiet intros.")
     ap.add_argument("--device", default=None, help="cuda / cpu (auto-detected if omitted)")
     ap.add_argument("--compute-type", default=None,
                     help="float16 (GPU) / int8 (CPU). Auto if omitted.")
@@ -99,6 +103,12 @@ def main():
                     help="file of names/terms to improve spelling accuracy (default glossary.txt)")
     ap.add_argument("--min-speakers", type=int, default=None)
     ap.add_argument("--max-speakers", type=int, default=None)
+    ap.add_argument("--diarize-model", default="pyannote/speaker-diarization-community-1",
+                    help="pyannote diarization pipeline (must be accepted on HuggingFace). "
+                         "Default: speaker-diarization-community-1 (whisperx 3.8+ default). "
+                         "Use pyannote/speaker-diarization-3.1 for the older gated model.")
+    ap.add_argument("--no-diarize", action="store_true",
+                    help="skip diarization: transcription only, no speaker labels, no HF token needed")
     ap.add_argument("--label-style", default="P", choices=["P", "QA"],
                     help="P = P1/P2/... ; QA = Question/Answer (interviewer auto-detected)")
     ap.add_argument("--no-timestamps", action="store_true")
@@ -136,9 +146,9 @@ def main():
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     compute_type = args.compute_type or ("float16" if device == "cuda" else "int8")
     print("Device: " + device + "  |  compute_type: " + compute_type + "  |  model: " + args.model)
-    if not args.hf_token:
+    if not args.no_diarize and not args.hf_token:
         print("ERROR: a Hugging Face token is required for diarization. "
-              "Pass --hf-token or set HF_TOKEN. See README.md.")
+              "Pass --hf-token or set HF_TOKEN, or use --no-diarize. See README.md.")
         sys.exit(2)
 
     initial_prompt = load_glossary(args.glossary)
@@ -148,11 +158,17 @@ def main():
 
     model = whisperx.load_model(args.model, device, compute_type=compute_type,
                                 asr_options=asr_options)
-    try:
-        from whisperx.diarize import DiarizationPipeline
-    except Exception:
-        from whisperx import DiarizationPipeline
-    diarizer = DiarizationPipeline(use_auth_token=args.hf_token, device=device)
+    diarizer = None
+    if not args.no_diarize:
+        try:
+            from whisperx.diarize import DiarizationPipeline
+        except Exception:
+            from whisperx import DiarizationPipeline
+        print("Diarization model: " + args.diarize_model)
+        diarizer = DiarizationPipeline(model_name=args.diarize_model,
+                                       token=args.hf_token, device=device)
+    else:
+        print("Diarization disabled (--no-diarize): transcription only, single speaker label.")
     align_cache = {}
 
     for i, audio_path in enumerate(files, 1):
@@ -163,14 +179,17 @@ def main():
         try:
             segs, lang = transcribe_file(audio_path, model, align_cache, diarizer,
                                          device, args.batch_size,
-                                         args.min_speakers, args.max_speakers)
+                                         args.min_speakers, args.max_speakers,
+                                         args.language)
         except Exception as e:
             print("  FAILED: " + str(e))
             continue
         json.dump(segs, open(stem + ".json", "w", encoding="utf-8"),
                   ensure_ascii=False, indent=1)
         meta = ("Auto-transcribed (" + args.model + ", lang=" + str(lang) + "). "
-                "Speaker labels from diarization - verify against audio for key quotes.")
+                + ("Diarization skipped - single speaker label."
+                   if args.no_diarize else
+                   "Speaker labels from diarization - verify against audio for key quotes."))
         info = qa_format.process(segs, stem, title=name, meta=meta,
                                  timestamps=not args.no_timestamps)
         dur = round(time.time() - t0)
