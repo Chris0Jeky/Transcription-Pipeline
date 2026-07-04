@@ -24,6 +24,11 @@ import qa_format
 
 AUDIO_EXT = (".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg", ".mp4", ".wma")
 
+# Fixed lead-in of the glossary initial_prompt. During silent stretches Whisper
+# can echo this back as if it were speech (a hallucination); strip_prompt_echo()
+# removes such echoes from the output.
+GLOSSARY_LEAD = "Names and terms that appear include"
+
 
 def load_dotenv():
     """Load KEY=VALUE lines from a local .env (next to this script, or cwd) into
@@ -50,8 +55,32 @@ def load_glossary(path):
             terms.append(line)
     if not terms:
         return None
-    return ("This is a podcast interview. Names and terms that appear include: "
+    return ("This is a podcast interview. " + GLOSSARY_LEAD + ": "
             + ", ".join(terms) + ".")
+
+
+def strip_prompt_echo(segments, initial_prompt):
+    """Remove Whisper's hallucinated echoes of the glossary prompt. On silent
+    stretches Whisper sometimes emits the prompt lead-in ('Names and terms that
+    appear include ...') as if it were speech. Trim that text from a segment;
+    drop the segment if nothing real remains."""
+    if not initial_prompt:
+        return segments
+    marker = GLOSSARY_LEAD.lower()
+    out, dropped = [], 0
+    for s in segments:
+        txt = s.get("text") or ""
+        i = txt.lower().find(marker)
+        if i != -1:
+            txt = txt[:i].rstrip(" ,.-\t")
+        if txt.strip():
+            s = dict(s); s["text"] = txt
+            out.append(s)
+        else:
+            dropped += 1
+    if dropped:
+        print("  removed " + str(dropped) + " glossary-prompt hallucination segment(s)")
+    return out
 
 
 def transcribe_file(audio_path, model, align_cache, diarizer, device,
@@ -154,7 +183,12 @@ def main():
     initial_prompt = load_glossary(args.glossary)
     if initial_prompt:
         print("Glossary loaded (" + args.glossary + ") - biasing spellings.")
-    asr_options = {"initial_prompt": initial_prompt} if initial_prompt else None
+    # condition_on_previous_text=False stops the glossary prompt from carrying
+    # across windows and looping. Any echo that still slips through is removed
+    # from the output by strip_prompt_echo() below.
+    asr_options = {"condition_on_previous_text": False}
+    if initial_prompt:
+        asr_options["initial_prompt"] = initial_prompt
 
     model = whisperx.load_model(args.model, device, compute_type=compute_type,
                                 asr_options=asr_options)
@@ -184,6 +218,7 @@ def main():
         except Exception as e:
             print("  FAILED: " + str(e))
             continue
+        segs = strip_prompt_echo(segs, initial_prompt)
         json.dump(segs, open(stem + ".json", "w", encoding="utf-8"),
                   ensure_ascii=False, indent=1)
         meta = ("Auto-transcribed (" + args.model + ", lang=" + str(lang) + "). "
